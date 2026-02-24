@@ -14,7 +14,7 @@ class RolesAndAdminSeeder extends Seeder
      */
     public function run(): void
     {
-        // app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
         $admin = Role::firstOrCreate(['name' => 'adminGlobal']);
         $user = Role::firstOrCreate(['name' => 'user']);
