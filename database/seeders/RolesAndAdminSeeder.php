@@ -4,7 +4,8 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use spatie\Permission\Models\Role;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 class RolesAndAdminSeeder extends Seeder
 {
@@ -13,6 +14,27 @@ class RolesAndAdminSeeder extends Seeder
      */
     public function run(): void
     {
-        Role::Create(['name' => 'admin']);
+        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+
+        $admin = Role::firstOrCreate(['name' => 'adminGlobal']);
+        $user = Role::firstOrCreate(['name' => 'user']);
+        // $admin = User::firstOrCreate(['email' => 'admin@easycoloc.com'], [
+        //     'name' => 'Admin EasyColoc',
+        //     'password' => Hash::make('password123'),
+        // ]);
+        // if (!$admin->hasRole('admin')) {
+        //     $admin->assignRole('admin');
+        // }
+        $admin->givePermissionTo([
+            'viewStatics',
+            'banUsers',
+            'disableUsers',
+            'createColocation',
+            'joinColocation'
+        ]);
+        $user->givePermissionTo([
+            'createColocation',
+            'joinColocation'
+        ]);
     }
 }

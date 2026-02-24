@@ -10,6 +10,8 @@
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
                     {{ __("You're logged in!") }}
+                    @php  $user =  Spatie\Permission\Models\Role::find(auth()->id()) @endphp
+                    {{ $user->name }}
                 </div>
             </div>
         </div>
