@@ -10,8 +10,22 @@
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
                     {{ __("You're logged in!") }}
-                    @php  $user =  Spatie\Permission\Models\Role::find(auth()->id()) @endphp
-                    {{ $user->name }}
+                    
+                    <p>Nom : {{ auth()->user()->name }}</p>
+                    
+                    <p>Rôles :</p>
+                    <ul>
+                        @foreach(auth()->user()->getRoleNames() as $role)
+                            <li>{{ $role }}</li>
+                        @endforeach
+                    </ul>
+                    
+                    <p>Permissions :</p>
+                    <ul>
+                        @foreach(auth()->user()->getAllPermissions() as $permission)
+                            <li>{{ $permission->name }}</li>
+                        @endforeach
+                    </ul>
                 </div>
             </div>
         </div>

@@ -14,7 +14,7 @@ class RolesAndAdminSeeder extends Seeder
      */
     public function run(): void
     {
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        // app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
         $admin = Role::firstOrCreate(['name' => 'adminGlobal']);
         $user = Role::firstOrCreate(['name' => 'user']);
@@ -26,15 +26,16 @@ class RolesAndAdminSeeder extends Seeder
         //     $admin->assignRole('admin');
         // }
         $admin->givePermissionTo([
-            'viewStatics',
-            'banUsers',
-            'disableUsers',
-            'createColocation',
-            'joinColocation'
+            'view_statistics',
+            'ban_users',
+            'disable_users',
+            'create_colocation',
+            'join_colocation'
         ]);
+
         $user->givePermissionTo([
-            'createColocation',
-            'joinColocation'
+            'create_colocation',
+            'join_colocation'
         ]);
     }
 }

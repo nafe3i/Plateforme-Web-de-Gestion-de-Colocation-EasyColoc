@@ -14,15 +14,13 @@ class PermissionSeeder extends Seeder
     public function run(): void
     {
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
-
         $permissions = [
-            'view statistics',
-            'ban users',
-            'disable users',
-            'create colocation',
-            'join colocation'
+            'view_statistics',
+            'ban_users',
+            'disable_users',
+            'create_colocation',
+            'join_colocation'
         ];
-
         foreach ($permissions as $permission) {
             Permission::firstOrCreate(['name' => $permission]);
         }

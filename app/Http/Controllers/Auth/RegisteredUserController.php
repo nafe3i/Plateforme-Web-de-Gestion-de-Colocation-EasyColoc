@@ -46,7 +46,8 @@ class RegisteredUserController extends Controller
 
         //pour l creation de admin
         if (User::count() == 1) {
-            $user->assignRole('admin');
+            $user->assignRole('adminGlobal');
+            // dd($user->getRoleNames());
         } else {
             $user->assignRole('user');
         }
