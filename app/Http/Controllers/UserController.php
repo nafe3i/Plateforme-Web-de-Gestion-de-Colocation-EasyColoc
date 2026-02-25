@@ -16,19 +16,19 @@ class UserController extends Controller
         $user = Auth::user();
         return view('dashboard', compact('user'));
     }
-    public function dashboard()
-    {
-        // dd(Auth()->user()->hasRole('adminGlobal'));
-        // die;
-        $user = Auth::user();
-        // return view('dashboard', compact(var_name: 'user'));
-        $stats = [
-            'total_users' => User::count(),
-            'banned_users' => User::where('is_banned', true)->count(),
-            'active_users' => User::where('is_banned', false)->count(),
-        ];
-        $users= User::with('roles')->get();
+    // public function dashboard()
+    // {
+    //     // dd(Auth()->user()->hasRole('adminGlobal'));
+    //     // die;
+    //     $user = Auth::user();
+    //     // return view('dashboard', compact(var_name: 'user'));
+    //     $stats = [
+    //         'total_users' => User::count(),
+    //         'banned_users' => User::where('is_banned', true)->count(),
+    //         'active_users' => User::where('is_banned', false)->count(),
+    //     ];
+    //     $users= User::with('roles')->get();
 
-        return view('dashboard', compact('user', 'stats','users'));
-    }
+    //     return view('dashboard', compact('user', 'stats','users'));
+    // }
 }
