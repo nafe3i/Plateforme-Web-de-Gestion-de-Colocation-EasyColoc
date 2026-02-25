@@ -33,6 +33,7 @@ class UserController extends Controller
     // }
     public function create()
     {
-
+        return view(('create_colocate'));
     }
+    public function store(){}
 }
