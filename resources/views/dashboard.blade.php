@@ -33,6 +33,7 @@
                         <h2>tous les utilisateurs</h2>
                         @foreach ($users as $us)
                             <p>nom: {{  $us->name}}</p>
+                            <p>role :{{ $us->roles->name }}</p>
                         @endforeach
                     @endif
                 </div>

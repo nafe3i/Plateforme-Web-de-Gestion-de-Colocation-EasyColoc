@@ -27,7 +27,7 @@ class UserController extends Controller
             'banned_users' => User::where('is_banned', true)->count(),
             'active_users' => User::where('is_banned', false)->count(),
         ];
-        $users= User::all();
+        $users= User::with('roles')->get();
 
         return view('dashboard', compact('user', 'stats','users'));
     }
