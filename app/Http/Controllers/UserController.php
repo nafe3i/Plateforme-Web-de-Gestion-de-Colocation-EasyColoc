@@ -31,4 +31,8 @@ class UserController extends Controller
 
     //     return view('dashboard', compact('user', 'stats','users'));
     // }
+    public function create()
+    {
+
+    }
 }
