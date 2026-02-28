@@ -77,6 +77,20 @@ class BalanceCalculator
             }
         }
 
+        // Legacy safety: keep active balances conserved (sum = 0).
+        // If old data left an inactive member with non-zero residual balance,
+        // we assign that difference to the active owner to avoid empty settlements.
+        $total = round(array_sum($balances), 2);
+        if (abs($total) > 0.01) {
+            $ownerId = (int) $colocation->owner_id;
+            $fallbackId = array_key_first($balances);
+            $targetId = array_key_exists($ownerId, $balances) ? $ownerId : $fallbackId;
+
+            if ($targetId !== null) {
+                $balances[$targetId] -= $total;
+            }
+        }
+
         foreach ($balances as $userId => $balance) {
             DB::table('memberships')
                 ->where('colocation_id', $colocation->id)
@@ -146,13 +160,15 @@ class BalanceCalculator
 
     private static function isActiveOnDate(Membership $membership, $date): bool
     {
-        $expenseDate = $date instanceof \DateTimeInterface ? Carbon::instance($date) : Carbon::parse($date);
+        $expenseDate = ($date instanceof \DateTimeInterface ? Carbon::instance($date) : Carbon::parse($date))
+            ->toDateString();
 
-        if ($membership->joined_at && $membership->joined_at->gt($expenseDate)) {
+        if ($membership->joined_at && $membership->joined_at->toDateString() > $expenseDate) {
             return false;
         }
 
-        if ($membership->left_at && !$membership->left_at->gt($expenseDate)) {
+        // A member who left on the same calendar day still counts for that day's expense.
+        if ($membership->left_at && $membership->left_at->toDateString() < $expenseDate) {
             return false;
         }
 
