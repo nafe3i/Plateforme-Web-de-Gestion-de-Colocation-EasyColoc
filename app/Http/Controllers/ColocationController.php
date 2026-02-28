@@ -123,14 +123,21 @@ class ColocationController extends Controller
         try {
             BalanceCalculator::recalculate($colocation);
             $membership->refresh();
-            $hasDebt = $membership->hasDebt();
-            $debtAmount = (float) $membership->balance;
+            $balance = (float) $membership->balance;
+            $hasDebt = $balance > 0.01;
 
+            $remainingMemberships = $colocation->memberships()
+                ->whereNull('left_at')
+                ->where('user_id', '!=', $user->id)
+                ->get();
+
+            $this->distributeAdjustment($remainingMemberships, $balance);
             $membership->update(['left_at' => now()]);
+            BalanceCalculator::recalculate($colocation);
 
             if ($hasDebt) {
                 $user->decrement('reputation');
-                $message = "Vous avez quitte la colocation. Reputation -1 (dette {$debtAmount} EUR).";
+                $message = "Vous avez quitte la colocation. Reputation -1 (dette " . number_format($balance, 2) . " EUR).";
             } else {
                 $user->increment('reputation');
                 $message = 'Vous avez quitte la colocation. Reputation +1.';
@@ -153,31 +160,33 @@ class ColocationController extends Controller
 
         DB::beginTransaction();
         try {
-            $owner = Auth::user();
-
             BalanceCalculator::recalculate($colocation);
+            $activeMemberships = $colocation->memberships()
+                ->with('user')
+                ->whereNull('left_at')
+                ->get();
 
-            $ownerMembership = $this->activeMembership($colocation, $owner->id);
+            foreach ($activeMemberships as $membership) {
+                if (!$membership->user) {
+                    continue;
+                }
 
-            $hasDebt = $ownerMembership && $ownerMembership->hasDebt();
+                if ((float) $membership->balance > 0.01) {
+                    $membership->user->decrement('reputation');
+                } else {
+                    $membership->user->increment('reputation');
+                }
+            }
 
             $colocation->update(['status' => 'cancelled']);
-
             $colocation->memberships()
                 ->whereNull('left_at')
                 ->update(['left_at' => now()]);
 
-            if ($hasDebt) {
-                $owner->decrement('reputation');
-                $message = "Colocation annulee. Reputation -1 (dette {$ownerMembership->balance} EUR).";
-            } else {
-                $owner->increment('reputation');
-                $message = 'Colocation annulee. Reputation +1.';
-            }
-
             DB::commit();
 
-            return redirect()->route('colocations.index')->with('success', $message);
+            return redirect()->route('colocations.index')
+                ->with('success', 'Colocation annulee. Reputation mise a jour pour les membres.');
         } catch (\Exception $e) {
             DB::rollBack();
             return redirect()->back()->with('error', 'Erreur lors de l annulation.');
@@ -205,8 +214,8 @@ class ColocationController extends Controller
             BalanceCalculator::recalculate($colocation);
             $membership->refresh();
 
-            $hasDebt = $membership->hasDebt();
-            $debtAmount = (float) $membership->balance;
+            $balance = (float) $membership->balance;
+            $hasDebt = $balance > 0.01;
 
             if ($hasDebt) {
                 $ownerMembership = $this->activeMembership($colocation, (int) Auth::id());
@@ -216,11 +225,17 @@ class ColocationController extends Controller
                     return redirect()->back()->with('error', 'Owner introuvable pour transfert de dette.');
                 }
 
-                $ownerMembership->increment('manual_adjustment', $debtAmount);
+                $ownerMembership->increment('manual_adjustment', $balance);
                 $member->decrement('reputation');
 
-                $message = "Membre {$member->name} retire. Dette {$debtAmount} EUR transferee a l owner. Reputation -1.";
+                $message = "Membre {$member->name} retire. Dette " . number_format($balance, 2) . " EUR transferee a l owner. Reputation -1.";
             } else {
+                $remainingMemberships = $colocation->memberships()
+                    ->whereNull('left_at')
+                    ->where('user_id', '!=', $member->id)
+                    ->get();
+
+                $this->distributeAdjustment($remainingMemberships, $balance);
                 $member->increment('reputation');
                 $message = "Membre {$member->name} retire. Reputation +1 (aucune dette).";
             }
@@ -243,5 +258,25 @@ class ColocationController extends Controller
             ->where('user_id', $userId)
             ->whereNull('left_at')
             ->first();
+    }
+
+    private function distributeAdjustment($memberships, float $amount): void
+    {
+        $memberships = $memberships->values();
+        $count = $memberships->count();
+
+        if ($count === 0 || abs($amount) < 0.01) {
+            return;
+        }
+
+        $baseShare = round($amount / $count, 2);
+        $distributed = 0.0;
+
+        foreach ($memberships as $index => $membership) {
+            $isLast = $index === $count - 1;
+            $share = $isLast ? round($amount - $distributed, 2) : $baseShare;
+            $membership->increment('manual_adjustment', $share);
+            $distributed += $share;
+        }
     }
 }
