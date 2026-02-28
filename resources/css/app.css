@@ -1,3 +1,225 @@
+@import url('https://fonts.bunny.net/css?family=manrope:400,500,600,700,800');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+    --ec-bg-start: #f9fafb;
+    --ec-bg-end: #eef4ff;
+    --ec-ink: #0f172a;
+    --ec-muted: #64748b;
+    --ec-primary: #2563eb;
+    --ec-primary-soft: #dbeafe;
+    --ec-positive: #10b981;
+    --ec-negative: #ef4444;
+    --ec-border: #e2e8f0;
+}
+
+body {
+    font-family:
+        'Manrope',
+        ui-sans-serif,
+        system-ui,
+        -apple-system,
+        Segoe UI,
+        Roboto,
+        Helvetica,
+        Arial,
+        'Apple Color Emoji',
+        'Segoe UI Emoji';
+    color: var(--ec-ink);
+    background:
+        radial-gradient(1200px 500px at 8% -10%, #dbeafe 0%, transparent 70%),
+        radial-gradient(1100px 500px at 95% 8%, #e0f2fe 0%, transparent 65%),
+        linear-gradient(180deg, var(--ec-bg-start), var(--ec-bg-end));
+    min-height: 100vh;
+}
+
+.ec-shell {
+    position: relative;
+    min-height: 100vh;
+}
+
+.ec-shell::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(120deg, rgba(37, 99, 235, 0.03) 1px, transparent 1px),
+        linear-gradient(30deg, rgba(59, 130, 246, 0.02) 1px, transparent 1px);
+    background-size: 34px 34px, 38px 38px;
+    pointer-events: none;
+}
+
+.ec-card {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(226, 232, 240, 0.95);
+    box-shadow: 0 20px 45px -32px rgba(15, 23, 42, 0.3);
+    backdrop-filter: blur(7px);
+    border-radius: 1.15rem;
+}
+
+.ec-header-card {
+    background: linear-gradient(120deg, rgba(37, 99, 235, 0.98), rgba(59, 130, 246, 0.95));
+    color: #fff;
+    border-radius: 1.15rem;
+    box-shadow: 0 24px 38px -24px rgba(37, 99, 235, 0.76);
+}
+
+.ec-pill {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    border: 1px solid #dbeafe;
+    background: rgba(255, 255, 255, 0.85);
+    padding: 0.32rem 0.75rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    color: #0f172a;
+}
+
+.ec-alert {
+    border-radius: 0.75rem;
+    border: 1px solid transparent;
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.ec-alert-success {
+    border-color: #bbf7d0;
+    background: #ecfdf5;
+    color: #065f46;
+}
+
+.ec-alert-error {
+    border-color: #fecaca;
+    background: #fef2f2;
+    color: #991b1b;
+}
+
+.ec-page {
+    max-width: 88rem;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+}
+
+.ec-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.25rem;
+}
+
+@media (min-width: 1024px) {
+    .ec-layout {
+        grid-template-columns: 16rem minmax(0, 1fr);
+        gap: 1.5rem;
+        align-items: start;
+    }
+}
+
+.ec-sidebar {
+    position: sticky;
+    top: 5.25rem;
+    border-radius: 1.15rem;
+    border: 1px solid rgba(226, 232, 240, 0.95);
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 18px 40px -30px rgba(15, 23, 42, 0.35);
+    padding: 0.9rem;
+}
+
+.ec-sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    border-radius: 0.85rem;
+    padding: 0.62rem 0.8rem;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #334155;
+    transition: all 0.18s ease;
+}
+
+.ec-sidebar-link:hover {
+    background: #eff6ff;
+    color: var(--ec-primary);
+}
+
+.ec-sidebar-link-active {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.ec-metric-card {
+    border-radius: 1rem;
+    border: 1px solid #e2e8f0;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 1.05rem;
+}
+
+.ec-metric-label {
+    font-size: 0.73rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #64748b;
+}
+
+.ec-metric-value {
+    margin-top: 0.45rem;
+    font-size: 1.65rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #0f172a;
+}
+
+.ec-badge-positive {
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #bbf7d0;
+}
+
+.ec-badge-negative {
+    background: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+}
+
+.ec-settlement-card {
+    border-radius: 1rem;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    padding: 0.85rem 1rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ec-settlement-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 14px 28px -24px rgba(15, 23, 42, 0.42);
+}
+
+.ec-chart-row {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+}
+
+.ec-chart-bar {
+    height: 0.58rem;
+    border-radius: 9999px;
+    background: linear-gradient(90deg, #2563eb, #3b82f6);
+}
+
+@media (min-width: 640px) {
+    .ec-page {
+        padding: 2.5rem 1.5rem;
+    }
+}
+
+@media (min-width: 1024px) {
+    .ec-page {
+        padding: 2.8rem 2rem;
+    }
+}
