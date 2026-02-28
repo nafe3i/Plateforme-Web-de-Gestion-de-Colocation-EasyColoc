@@ -100,6 +100,42 @@ class ColocationController extends Controller
         return view('colocations.show', compact('colocation'));
     }
 
+    public function edit(Colocation $colocation)
+    {
+        if (!$colocation->isOwner(Auth::user())) {
+            abort(403, 'Seul le proprietaire peut modifier la colocation.');
+        }
+
+        if (!$colocation->isActive()) {
+            return redirect()->route('colocations.show', $colocation)
+                ->with('error', 'La colocation annulee ne peut pas etre modifiee.');
+        }
+
+        return view('colocations.edit', compact('colocation'));
+    }
+
+    public function update(Request $request, Colocation $colocation)
+    {
+        if (!$colocation->isOwner(Auth::user())) {
+            abort(403, 'Seul le proprietaire peut modifier la colocation.');
+        }
+
+        if (!$colocation->isActive()) {
+            return redirect()->route('colocations.show', $colocation)
+                ->with('error', 'La colocation annulee ne peut pas etre modifiee.');
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string|max:1000',
+        ]);
+
+        $colocation->update($validated);
+
+        return redirect()->route('colocations.show', $colocation)
+            ->with('success', 'Colocation mise a jour avec succes.');
+    }
+
     public function leave(Colocation $colocation)
     {
         $user = Auth::user();

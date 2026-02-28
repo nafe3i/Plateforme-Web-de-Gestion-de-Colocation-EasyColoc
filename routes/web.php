@@ -38,7 +38,7 @@ Route::middleware(['auth', 'check.banned'])->group(function () {
 
     Route::get('/user/dashboard', [UserController::class, 'index'])->name('user.dashboard');
 
-    Route::resource('colocations', ColocationController::class)->except(['edit', 'update']);
+    Route::resource('colocations', ColocationController::class);
     Route::post('/colocations/{colocation}/leave', [ColocationController::class, 'leave'])->name('colocations.leave');
     Route::delete('/colocations/{colocation}/members/{member}', [ColocationController::class, 'removeMember'])
         ->name('colocations.removeMember');

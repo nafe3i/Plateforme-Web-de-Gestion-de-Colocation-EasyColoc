@@ -34,6 +34,9 @@
                                     <div>
                                         <p class="font-bold text-slate-900">{{ $member->name }}</p>
                                         <p class="text-sm text-slate-500">{{ $member->email }}</p>
+                                        <p class="mt-1 text-xs font-semibold text-slate-600">
+                                            Reputation: <span class="{{ $member->reputation >= 0 ? 'text-emerald-600' : 'text-red-600' }}">{{ $member->reputation }}</span>
+                                        </p>
 
                                         @if((float) $member->pivot->balance !== 0.0)
                                             <p class="mt-1 text-xs font-semibold {{ $member->pivot->balance > 0 ? 'text-red-600' : 'text-emerald-600' }}">
@@ -98,6 +101,10 @@
                         @endif
 
                         @if($colocation->isOwner(auth()->user()))
+                            <a href="{{ route('colocations.edit', $colocation) }}"
+                                class="inline-flex items-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50">
+                                Modifier la colocation
+                            </a>
                             <form action="{{ route('colocations.destroy', $colocation) }}" method="POST">
                                 @csrf
                                 @method('DELETE')
