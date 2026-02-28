@@ -3,12 +3,17 @@
 namespace App\Services;
 
 use App\Models\Colocation;
+use App\Models\Membership;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class BalanceCalculator
 {
     public static function recalculate(Colocation $colocation): void
     {
+        $allMemberships = $colocation->memberships()
+            ->get(['user_id', 'joined_at', 'left_at']);
+
         $activeMemberships = $colocation->memberships()
             ->whereNull('left_at')
             ->get(['user_id', 'manual_adjustment']);
@@ -17,22 +22,36 @@ class BalanceCalculator
             return;
         }
 
-        $memberIds = $activeMemberships->pluck('user_id')->map(fn($id) => (int) $id)->all();
-        $memberCount = count($memberIds);
-
         // Base balance = manual adjustment (used when owner absorbs debt after member removal).
         $balances = [];
         foreach ($activeMemberships as $membership) {
             $balances[(int) $membership->user_id] = (float) $membership->manual_adjustment;
         }
 
-        $expenses = $colocation->expenses()->get(['paid_by', 'amount']);
+        $expenses = $colocation->expenses()->get(['paid_by', 'amount', 'date']);
         foreach ($expenses as $expense) {
-            $paidBy = (int) $expense->paid_by;
             $totalAmount = (float) $expense->amount;
-            $sharePerPerson = (float) $expense->amount / $memberCount;
+            $paidBy = (int) $expense->paid_by;
 
-            foreach ($memberIds as $memberId) {
+            $participantIds = $allMemberships
+                ->filter(fn(Membership $membership) => self::isActiveOnDate($membership, $expense->date))
+                ->pluck('user_id')
+                ->map(fn($id) => (int) $id)
+                ->values();
+
+            $participantCount = $participantIds->count();
+            if ($participantCount === 0) {
+                continue;
+            }
+
+            $sharePerPerson = $totalAmount / $participantCount;
+
+            foreach ($participantIds as $memberId) {
+                // We only maintain balances for current active members.
+                if (!array_key_exists($memberId, $balances)) {
+                    continue;
+                }
+
                 if ($memberId === $paidBy) {
                     $delta = -($totalAmount - $sharePerPerson);
                 } else {
@@ -123,5 +142,20 @@ class BalanceCalculator
         }
 
         return $settlements;
+    }
+
+    private static function isActiveOnDate(Membership $membership, $date): bool
+    {
+        $expenseDate = $date instanceof \DateTimeInterface ? Carbon::instance($date) : Carbon::parse($date);
+
+        if ($membership->joined_at && $membership->joined_at->gt($expenseDate)) {
+            return false;
+        }
+
+        if ($membership->left_at && !$membership->left_at->gt($expenseDate)) {
+            return false;
+        }
+
+        return true;
     }
 }
