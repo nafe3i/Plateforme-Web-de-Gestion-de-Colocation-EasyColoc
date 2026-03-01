@@ -3,175 +3,147 @@
 namespace App\Services;
 
 use App\Models\Colocation;
-use App\Models\Membership;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class BalanceCalculator
 {
-    public static function recalculate(Colocation $colocation): void
+    /**
+     * Recalculer les balances de tous les membres actifs d'une colocation
+     */
+    public static function recalculate(Colocation $colocation)
     {
-        $allMemberships = $colocation->memberships()
-            ->get(['user_id', 'joined_at', 'left_at']);
+        // Récupérer tous les membres actifs (qui n'ont pas quitté)
+        $activeMembers = $colocation->activeMembers;
+        $memberCount = $activeMembers->count();
 
-        $activeMemberships = $colocation->memberships()
-            ->whereNull('left_at')
-            ->get(['user_id', 'manual_adjustment']);
-
-        if ($activeMemberships->isEmpty()) {
+        // Si pas de membres, on arrête
+        if ($memberCount === 0) {
             return;
         }
 
-        // Base balance = manual adjustment (used when owner absorbs debt after member removal).
-        $balances = [];
-        foreach ($activeMemberships as $membership) {
-            $balances[(int) $membership->user_id] = (float) $membership->manual_adjustment;
-        }
-
-        $expenses = $colocation->expenses()->get(['paid_by', 'amount', 'date']);
-        foreach ($expenses as $expense) {
-            $totalAmount = (float) $expense->amount;
-            $paidBy = (int) $expense->paid_by;
-
-            $participantIds = $allMemberships
-                ->filter(fn(Membership $membership) => self::isActiveOnDate($membership, $expense->date))
-                ->pluck('user_id')
-                ->map(fn($id) => (int) $id)
-                ->values();
-
-            $participantCount = $participantIds->count();
-            if ($participantCount === 0) {
-                continue;
-            }
-
-            $sharePerPerson = $totalAmount / $participantCount;
-
-            foreach ($participantIds as $memberId) {
-                // We only maintain balances for current active members.
-                if (!array_key_exists($memberId, $balances)) {
-                    continue;
-                }
-
-                if ($memberId === $paidBy) {
-                    $delta = -($totalAmount - $sharePerPerson);
-                } else {
-                    $delta = $sharePerPerson;
-                }
-
-                $balances[$memberId] += $delta;
-            }
-        }
-
-        $payments = $colocation->payments()->get(['from_user_id', 'to_user_id', 'amount']);
-        foreach ($payments as $payment) {
-            $fromId = (int) $payment->from_user_id;
-            $toId = (int) $payment->to_user_id;
-            $amount = (float) $payment->amount;
-
-            if (array_key_exists($fromId, $balances)) {
-                $balances[$fromId] -= $amount;
-            }
-
-            if (array_key_exists($toId, $balances)) {
-                $balances[$toId] += $amount;
-            }
-        }
-
-        // Legacy safety: keep active balances conserved (sum = 0).
-        // If old data left an inactive member with non-zero residual balance,
-        // we assign that difference to the active owner to avoid empty settlements.
-        $total = round(array_sum($balances), 2);
-        if (abs($total) > 0.01) {
-            $ownerId = (int) $colocation->owner_id;
-            $fallbackId = array_key_first($balances);
-            $targetId = array_key_exists($ownerId, $balances) ? $ownerId : $fallbackId;
-
-            if ($targetId !== null) {
-                $balances[$targetId] -= $total;
-            }
-        }
-
-        foreach ($balances as $userId => $balance) {
+        // Réinitialiser toutes les balances à 0
+        foreach ($activeMembers as $member) {
             DB::table('memberships')
                 ->where('colocation_id', $colocation->id)
-                ->where('user_id', $userId)
+                ->where('user_id', $member->id)
                 ->whereNull('left_at')
-                ->update(['balance' => round($balance, 2)]);
+                ->update(['balance' => 0]);
+        }
+
+        // Récupérer toutes les dépenses de la colocation
+        $expenses = $colocation->expenses;
+
+        // Pour chaque dépense, calculer la part de chacun
+        foreach ($expenses as $expense) {
+            $totalAmount = $expense->amount;
+            $paidBy = $expense->paid_by;
+            
+            // Calculer la part par personne
+            $sharePerPerson = $totalAmount / $memberCount;
+
+            // Mettre à jour la balance de chaque membre
+            foreach ($activeMembers as $member) {
+                // Récupérer la balance actuelle
+                $currentBalance = DB::table('memberships')
+                    ->where('colocation_id', $colocation->id)
+                    ->where('user_id', $member->id)
+                    ->whereNull('left_at')
+                    ->value('balance');
+
+                // Calculer la nouvelle balance
+                if ($member->id == $paidBy) {
+                    // Le payeur a payé pour tout le monde
+                    // Il doit recevoir: (montant total - sa part)
+                    $newBalance = $currentBalance - ($totalAmount - $sharePerPerson);
+                } else {
+                    // Les autres membres doivent leur part
+                    $newBalance = $currentBalance + $sharePerPerson;
+                }
+
+                // Mettre à jour la balance dans la base de données
+                DB::table('memberships')
+                    ->where('colocation_id', $colocation->id)
+                    ->where('user_id', $member->id)
+                    ->whereNull('left_at')
+                    ->update(['balance' => round($newBalance, 2)]);
+            }
         }
     }
 
-    public static function getSettlements(Colocation $colocation): array
+    /**
+     * Calculer qui doit payer qui (simplification des dettes)
+     */
+    public static function getSettlements(Colocation $colocation)
     {
-        $activeMembers = $colocation->activeMembers()->get();
-
-        $debtors = [];
-        $creditors = [];
+        $activeMembers = $colocation->activeMembers;
+        
+        // Séparer les membres en deux groupes:
+        // - Ceux qui doivent de l'argent (balance positive)
+        // - Ceux à qui on doit de l'argent (balance négative)
+        $debtors = [];    // Ceux qui doivent
+        $creditors = [];  // Ceux à qui on doit
 
         foreach ($activeMembers as $member) {
-            $balance = (float) $member->pivot->balance;
-
+            $balance = $member->pivot->balance;
+            
             if ($balance > 0.01) {
-                $debtors[] = ['user' => $member, 'amount' => $balance];
+                // Ce membre doit de l'argent
+                $debtors[] = [
+                    'user' => $member,
+                    'amount' => $balance
+                ];
             } elseif ($balance < -0.01) {
-                $creditors[] = ['user' => $member, 'amount' => abs($balance)];
+                // On doit de l'argent à ce membre
+                $creditors[] = [
+                    'user' => $member,
+                    'amount' => abs($balance) // Valeur absolue pour avoir un montant positif
+                ];
             }
         }
 
+        // Trier par montant décroissant
+        usort($debtors, function($a, $b) {
+            return $b['amount'] <=> $a['amount'];
+        });
+        usort($creditors, function($a, $b) {
+            return $b['amount'] <=> $a['amount'];
+        });
+
+        // Calculer les paiements simplifiés
         $settlements = [];
-
-        usort($debtors, fn($a, $b) => $b['amount'] <=> $a['amount']);
-        usort($creditors, fn($a, $b) => $b['amount'] <=> $a['amount']);
-
-        $i = 0;
-        $j = 0;
+        $i = 0; // Index pour debtors
+        $j = 0; // Index pour creditors
 
         while ($i < count($debtors) && $j < count($creditors)) {
             $debtor = $debtors[$i];
             $creditor = $creditors[$j];
 
+            // Le montant à payer est le minimum entre ce que doit le débiteur
+            // et ce que doit recevoir le créditeur
             $amount = min($debtor['amount'], $creditor['amount']);
-            $roundedAmount = round($amount, 2);
 
-            if ($roundedAmount <= 0) {
-                break;
-            }
-
+            // Ajouter ce paiement à la liste
             $settlements[] = [
                 'from' => $debtor['user'],
-                'from_id' => $debtor['user']->id,
                 'to' => $creditor['user'],
-                'to_id' => $creditor['user']->id,
-                'amount' => $roundedAmount,
+                'amount' => round($amount, 2),
             ];
 
+            // Mettre à jour les montants restants
             $debtors[$i]['amount'] -= $amount;
             $creditors[$j]['amount'] -= $amount;
 
+            // Si le débiteur a tout payé, passer au suivant
             if ($debtors[$i]['amount'] < 0.01) {
                 $i++;
             }
+            
+            // Si le créditeur a tout reçu, passer au suivant
             if ($creditors[$j]['amount'] < 0.01) {
                 $j++;
             }
         }
 
         return $settlements;
-    }
-
-    private static function isActiveOnDate(Membership $membership, $date): bool
-    {
-        $expenseDate = ($date instanceof \DateTimeInterface ? Carbon::instance($date) : Carbon::parse($date))
-            ->toDateString();
-
-        if ($membership->joined_at && $membership->joined_at->toDateString() > $expenseDate) {
-            return false;
-        }
-
-        // A member who left on the same calendar day still counts for that day's expense.
-        if ($membership->left_at && $membership->left_at->toDateString() < $expenseDate) {
-            return false;
-        }
-
-        return true;
     }
 }
