@@ -125,7 +125,9 @@ class BalanceCalculator
             // Ajouter ce paiement à la liste
             $settlements[] = [
                 'from' => $debtor['user'],
+                'from_id'=>$debtor['user']->id,
                 'to' => $creditor['user'],
+                'to_id'=>$creditor['user']->id,
                 'amount' => round($amount, 2),
             ];
 

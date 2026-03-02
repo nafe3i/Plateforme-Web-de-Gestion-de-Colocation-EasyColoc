@@ -27,7 +27,7 @@ class User extends Authenticatable
         'remember_token',
     ];
 
-    protected function casts(): array
+    protected function casts()
     {
         return [
             'email_verified_at' => 'datetime',
@@ -35,31 +35,31 @@ class User extends Authenticatable
         ];
     }
 
-    public function memberships(): HasMany
+    public function memberships()
     {
         return $this->hasMany(Membership::class);
     }
 
-    public function colocations(): BelongsToMany
+    public function colocations()
     {
         return $this->belongsToMany(Colocation::class, 'memberships')
             ->withPivot('role', 'balance', 'manual_adjustment', 'joined_at', 'left_at')
             ->withTimestamps();
     }
 
-    public function activeColocations(): BelongsToMany
+    public function activeColocations()
     {
         return $this->colocations()
             ->wherePivotNull('left_at')
             ->where('colocations.status', 'active');
     }
 
-    public function hasActiveColocation(): bool
+    public function hasActiveColocation()
     {
         return $this->activeColocations()->exists();
     }
 
-    public function activeColocation(): ?Colocation
+    public function activeColocation()
     {
         return $this->activeColocations()->first();
     }
